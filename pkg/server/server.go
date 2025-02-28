@@ -171,12 +171,7 @@ func (s *Server) processEvent(req WatchRequest) func(interface{}, string) {
 
 // publishToNATS sends all events for a specific WatchRequest to a single topic
 func (s *Server) publishToNATS(req WatchRequest, eventType, jsonData string) {
-	topic := fmt.Sprintf("k8s.%s.%s.%s.%s",
-		strings.ToLower(req.Group),
-		strings.ToLower(req.Version),
-		strings.ToLower(req.Resource),
-		strings.ToLower(req.Namespace),
-	)
+	topic := generateNATSTopic(req)
 
 	event := WatchResponse{
 		EventType: eventType,
@@ -216,4 +211,20 @@ func StartHTTPServer(address string, dynamicClient dynamic.Interface, restConfig
 
 	log.Printf("[INFO] HTTP server listening on %s", address)
 	log.Fatal(http.ListenAndServe(address, nil))
+}
+
+// generateNATSTopic creates a NATS topic string dynamically
+func generateNATSTopic(req WatchRequest) string {
+	parts := []string{"k8s"}
+
+	if req.Group != "" {
+		parts = append(parts, strings.ToLower(req.Group))
+	}
+	parts = append(parts, strings.ToLower(req.Version), strings.ToLower(req.Resource))
+
+	if req.Namespace != "" {
+		parts = append(parts, strings.ToLower(req.Namespace))
+	}
+
+	return strings.Join(parts, ".")
 }

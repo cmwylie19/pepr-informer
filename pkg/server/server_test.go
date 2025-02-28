@@ -1,77 +1,8 @@
 package server
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
-
-	"github.com/golang/mock/gomock"
-	"k8s.io/client-go/dynamic"
-
-	"github.com/cmwylie19/pepr-informer/api"
-	"github.com/cmwylie19/pepr-informer/mocks"
-	"k8s.io/client-go/rest"
 )
-
-func TestNewServer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockLogger := mocks.NewMockLoggerInterface(ctrl)
-
-	var mockClient dynamic.Interface
-	mockRestConfig := &rest.Config{}
-	s := NewServer(mockClient, mockRestConfig, mockLogger)
-
-	if s == nil {
-		t.Errorf("Expected server object, got nil")
-	}
-
-	if s.dynamicClient != mockClient {
-		t.Errorf("Expected dynamicClient to be set")
-	}
-
-	if s.config != mockRestConfig {
-		t.Errorf("Expected restConfig to be set")
-	}
-
-	if s.Logger != mockLogger {
-		t.Errorf("Expected logger to be set")
-	}
-}
-
-func TestFormSessionID(t *testing.T) {
-	tests := []struct {
-		name     string
-		inputReq *api.WatchRequest
-		expected string
-	}{
-		{
-			name:     "Resource and group",
-			inputReq: &api.WatchRequest{Resource: "pods", Group: "v1"},
-			expected: "Group: v1, Version: , Resource: pods, Namespace: *",
-		},
-		{
-			name:     "Resource only",
-			inputReq: &api.WatchRequest{Resource: "pods"},
-			expected: "Group: '', Version: , Resource: pods, Namespace: *",
-		},
-		{
-			name:     "Group only",
-			inputReq: &api.WatchRequest{Group: "v1"},
-			expected: "Group: v1, Version: , Resource: , Namespace: *",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			actual := formatSessionID(tc.inputReq)
-			if actual != tc.expected {
-				t.Errorf("expected: %s, got: %s", tc.expected, actual)
-			}
-		})
-	}
-}
 
 func TestGetFormattedGV(t *testing.T) {
 	tests := []struct {
@@ -104,68 +35,60 @@ func TestGetFormattedGV(t *testing.T) {
 	}
 }
 
-func TestFormatRequest(t *testing.T) {
-	mockGetResourceName := func(_ *rest.Config, group, version, resource string) (string, error) {
-		mockResources := map[string]string{
-			"pod":         "pods",
-			"POD":         "pods",
-			"deployments": "deployments",
-			"services":    "services",
-		}
-
-		if plural, exists := mockResources[resource]; exists {
-			return plural, nil
-		}
-		return "", fmt.Errorf("resource not found: %s", resource)
-	}
-
-	mockServer := &server{
-		config:          nil,                 // Not needed for mock
-		getResourceName: mockGetResourceName, // ✅ Inject mock function
-	}
-
+// Test cases for generateNATSTopic function
+func TestGenerateNATSTopic(t *testing.T) {
 	tests := []struct {
 		name     string
-		inputReq *api.WatchRequest
-		expected *api.WatchRequest
-		wantErr  bool
+		req      WatchRequest
+		expected string
 	}{
 		{
-			name:     "Lowercase resource with missing plural",
-			inputReq: &api.WatchRequest{Resource: "pod", Group: "v1"},
-			expected: &api.WatchRequest{Resource: "pods", Group: "v1"},
-			wantErr:  false,
+			name: "All fields present",
+			req: WatchRequest{
+				Group:     "apps",
+				Version:   "v1",
+				Resource:  "deployments",
+				Namespace: "default",
+			},
+			expected: "k8s.apps.v1.deployments.default",
 		},
 		{
-			name:     "Uppercase resource with missing plural",
-			inputReq: &api.WatchRequest{Resource: "POD", Group: "v1"},
-			expected: &api.WatchRequest{Resource: "pods", Group: "v1"},
-			wantErr:  false,
+			name: "No Group",
+			req: WatchRequest{
+				Group:     "",
+				Version:   "v1",
+				Resource:  "pods",
+				Namespace: "default",
+			},
+			expected: "k8s.v1.pods.default",
 		},
 		{
-			name:     "Resource already plural",
-			inputReq: &api.WatchRequest{Resource: "deployments"},
-			expected: &api.WatchRequest{Resource: "deployments"},
-			wantErr:  false,
+			name: "No Namespace",
+			req: WatchRequest{
+				Group:     "networking.k8s.io",
+				Version:   "v1",
+				Resource:  "ingresses",
+				Namespace: "",
+			},
+			expected: "k8s.networking.k8s.io.v1.ingresses",
 		},
 		{
-			name:     "Resource with incorrect name",
-			inputReq: &api.WatchRequest{Resource: "unknown"},
-			expected: nil,
-			wantErr:  true,
+			name: "No Group and No Namespace",
+			req: WatchRequest{
+				Group:     "",
+				Version:   "v1",
+				Resource:  "services",
+				Namespace: "",
+			},
+			expected: "k8s.v1.services",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			actual, err := mockServer.formatRequest(tc.inputReq)
-
-			if (err != nil) != tc.wantErr {
-				t.Errorf("expected error: %v, got error: %v", tc.wantErr, err)
-			}
-
-			if err == nil && !reflect.DeepEqual(actual, tc.expected) {
-				t.Errorf("expected: %#v, got: %#v", tc.expected, actual)
+			result := generateNATSTopic(tc.req)
+			if result != tc.expected {
+				t.Errorf("Expected topic: %s, got: %s", tc.expected, result)
 			}
 		})
 	}

@@ -42,11 +42,22 @@ curl -X POST http://localhost:8080/watch -H "Content-Type: application/json" -d 
 }'
 
 curl -X POST http://localhost:8080/watch -H "Content-Type: application/json" -d '{
+  "group": "",
+  "version": "v1",
+  "resource": "pods",
+  "namespace": ""
+}'
+
+curl -X POST http://localhost:8080/watch -H "Content-Type: application/json" -d '{
   "group": "apps",
   "version": "v1",
   "resource": "deployments",
   "namespace": "default"
 }'
+
+nats sub "k8s.apps.v1.deployments.default"
+nats sub "k8s.v1.pods.default"
+nats sub "k8s.v1.pods"
 ```
 
 subscribe through nats cli 
