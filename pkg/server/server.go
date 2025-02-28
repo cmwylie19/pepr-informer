@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -37,7 +36,6 @@ type Server struct {
 	dynamicClient dynamic.Interface
 	config        *rest.Config
 	natsConn      *nats.Conn
-	mu            sync.Mutex
 }
 
 // NewServer initializes a new server instance with NATS
@@ -73,8 +71,11 @@ func (s *Server) WatchHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
-	fmt.Fprintf(w, "Started watching %s/%s/%s in namespace %s", req.Group, req.Version, req.Resource, req.Namespace)
+	json.NewEncoder(w).Encode(map[string]string{
+		"natsTopic": generateNATSTopic(req),
+	})
 }
 
 // Watch starts a Kubernetes informer and publishes events to NATS
