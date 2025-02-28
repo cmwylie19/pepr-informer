@@ -100,11 +100,12 @@ func (s *Server) Watch(req WatchRequest) error {
 	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(s.dynamicClient, 5*time.Minute, req.Namespace, nil)
 	informer := factory.ForResource(gvr).Informer()
 
-	// Define event handlers
+	// Define event handlers with a single topic per resource
+	eventProcessor := s.processEvent(req)
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    s.processEvent("ADD"),
-		UpdateFunc: func(_, newObj interface{}) { s.processEvent("UPDATE")(newObj) },
-		DeleteFunc: s.processEvent("DELETE"),
+		AddFunc:    func(obj interface{}) { eventProcessor(obj, "ADD") },
+		UpdateFunc: func(_, newObj interface{}) { eventProcessor(newObj, "UPDATE") },
+		DeleteFunc: func(obj interface{}) { eventProcessor(obj, "DELETE") },
 	})
 
 	go informer.Run(make(chan struct{}))
@@ -154,9 +155,9 @@ func getFormattedGV(group, version string) string {
 	return fmt.Sprintf("%s/%s", group, version)
 }
 
-// processEvent handles Kubernetes events and sends them to NATS
-func (s *Server) processEvent(eventType string) func(interface{}) {
-	return func(obj interface{}) {
+// processEvent handles Kubernetes events and sends them to the appropriate NATS topic
+func (s *Server) processEvent(req WatchRequest) func(interface{}, string) {
+	return func(obj interface{}, eventType string) {
 		jsonObj, err := toJson(obj)
 		if err != nil {
 			log.Printf("[ERROR] JSON conversion failed: %v", err)
@@ -164,13 +165,19 @@ func (s *Server) processEvent(eventType string) func(interface{}) {
 		}
 
 		log.Printf("[INFO] EventType: %s, Details: %s", eventType, jsonObj)
-		s.publishToNATS(eventType, jsonObj)
+		s.publishToNATS(req, eventType, jsonObj)
 	}
 }
 
-// publishToNATS sends Kubernetes events to a NATS topic
-func (s *Server) publishToNATS(eventType, jsonData string) {
-	topic := fmt.Sprintf("k8s.%s", eventType)
+// publishToNATS sends all events for a specific WatchRequest to a single topic
+func (s *Server) publishToNATS(req WatchRequest, eventType, jsonData string) {
+	topic := fmt.Sprintf("k8s.%s.%s.%s.%s",
+		strings.ToLower(req.Group),
+		strings.ToLower(req.Version),
+		strings.ToLower(req.Resource),
+		strings.ToLower(req.Namespace),
+	)
+
 	event := WatchResponse{
 		EventType: eventType,
 		Details:   jsonData,
@@ -183,7 +190,9 @@ func (s *Server) publishToNATS(eventType, jsonData string) {
 	}
 
 	if err := s.natsConn.Publish(topic, data); err != nil {
-		log.Printf("[ERROR] Failed to publish event: %v", err)
+		log.Printf("[ERROR] Failed to publish event to topic %s: %v", topic, err)
+	} else {
+		log.Printf("[INFO] Event published to NATS topic: %s", topic)
 	}
 }
 
