@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pepr-informer
+  name: pepr-informer
+  namespace: pepr-informer
+spec:
+  template:
+    spec:
+      containers:
+      - image: pepr-informer:ci
+        name: pepr-informer 

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  creationTimestamp: null
+  name: pepr-informer
+  namespace: pepr-informer
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curler
+  namespace: pepr-informer
+  labels: 
+    app: curler
+spec:
+  serviceAccountName: pepr-informer
+  containers:
+  - name: grpcurl
+    image: curler:ci
+    imagePullPolicy: Never
+---

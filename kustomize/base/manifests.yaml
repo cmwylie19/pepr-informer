@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pepr-informer
+spec: {}
+status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pepr-informer
+  namespace: pepr-informer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pepr-informer
+  name: pepr-informer
+  namespace: pepr-informer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pepr-informer
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: pepr-informer
+    spec:
+      serviceAccountName: pepr-informer
+      containers:
+      - image: pepr-informer
+        name: pepr-informer 
+        imagePullPolicy: IfNotPresent
+        args: ["--log-level=debug"]
+        ports:
+        - containerPort: 50051
+        resources: {}
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pepr-informer
+  name: pepr-informer
+  namespace: pepr-informer
+spec:
+  ports:
+  - port: 50051
+    protocol: TCP
+    targetPort: 50051
+  selector:
+    app: pepr-informer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pepr-informer-cr
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - pods/status
+  verbs:
+  - get
+  - list
+  - delete
+  - create
+  - deletecollection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pepr-informer-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pepr-informer-cr
+subjects:
+- kind: ServiceAccount
+  name: pepr-informer
+  namespace: pepr-informer
