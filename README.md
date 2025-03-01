@@ -25,12 +25,21 @@ Flags:
 
 - [Nats Server](https://github.com/nats-io/nats-server/releases/tag/v2.10.26)
 
+Add the repo 
+```bash
+helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+helm install nats nats/nats --set namespaceOverride=pepr-system
+```
 
 ## Local Development
 
 ```bash
 ./nats-server&
 go run main.go --server-address=":8080" --nats-url="nats://localhost:4222" --in-cluster=false
+```
+
+```bash
+NATS_URL="nats://localhost:4222" npx pepr dev --confirm 
 ```
 
 ```bash
