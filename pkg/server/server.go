@@ -70,7 +70,11 @@ func (s *Server) WatchHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[ERROR] Watch failed: %v", err)
 		}
 	}()
-
+	req, err := s.formatRequest(req)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to format request: %v", err), http.StatusBadRequest)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(map[string]string{

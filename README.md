@@ -146,3 +146,24 @@ When(a.Pod)
     await deletePod(instance.metadata.name);
   });
 ```
+
+
+## Demo 
+
+
+Set up
+
+```bash
+k3d cluster delete k3s-default;
+docker rmi -f pepr-informer:dev;
+docker rmi -f pepr:dev; 
+k3d cluster create;
+make build-dev-image;
+# in pepr npm run build:image
+k3d image import pepr-informer:dev -c k3s-default
+k3d image import pepr:dev -c k3s-default
+k3d image import nginx -c k3s-default
+k create ns pepr-system;
+helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+helm install nats nats/nats --set namespaceOverride=pepr-system
+```
