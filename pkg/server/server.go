@@ -104,9 +104,9 @@ func (s *Server) Watch(req WatchRequest) error {
 	// Define event handlers with a single topic per resource
 	eventProcessor := s.processEvent(req)
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { eventProcessor(obj, "ADD") },
-		UpdateFunc: func(_, newObj interface{}) { eventProcessor(newObj, "UPDATE") },
-		DeleteFunc: func(obj interface{}) { eventProcessor(obj, "DELETE") },
+		AddFunc:    func(obj interface{}) { eventProcessor(obj, "ADDED") },
+		UpdateFunc: func(_, newObj interface{}) { eventProcessor(newObj, "MODIFIED") },
+		DeleteFunc: func(obj interface{}) { eventProcessor(obj, "DELETED") },
 	})
 
 	go informer.Run(make(chan struct{}))
