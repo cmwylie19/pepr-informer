@@ -156,7 +156,7 @@ Set up
 ```bash
 k3d cluster delete k3s-default;
 docker rmi -f pepr-informer:dev;
-docker rmi -f pepr:dev; 
+docker rmi -f pepr:informer; 
 k3d cluster create;
 make build-dev-image;
 # in pepr npm run build:image
@@ -166,4 +166,36 @@ k3d image import nginx -c k3s-default
 k create ns pepr-system;
 helm repo add nats https://nats-io.github.io/k8s/helm/charts/
 helm install nats nats/nats --set namespaceOverride=pepr-system
+```
+
+
+```bash
+k3d cluster delete k3s-default;
+k3d cluster create;
+# make build-dev-image;
+# in pepr npm run build:image
+k3d image import pepr-informer:dev -c k3s-default
+k3d image import pepr:informer -c k3s-default
+k3d image import nginx -c k3s-default
+k create ns pepr-system;
+k create ns pepr-demo 
+helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+helm install nats nats/nats --set namespaceOverride=pepr-system
+sleep 4
+k wait --for=condition=ready -n pepr-system po -l app.kubernetes.io/component=nats
+kubectl apply -f dist
+```
+
+```bash
+k3d cluster delete k3s-default;
+k3d cluster create;
+k3d image import pepr:dev -c k3s-default
+k3d image import nginx -c k3s-default
+k create ns pepr-demo 
+k wait --for=condition=ready -n pepr-system po -l pepr.dev/controller=server
+k apply -f dist
+```
+
+```bash
+for x in $(seq 2000); do kubectl run a$x --image=nginx -n pepr-demo --image-pull-policy=IfNotPresent; done
 ```
